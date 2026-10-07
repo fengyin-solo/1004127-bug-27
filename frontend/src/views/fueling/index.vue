@@ -7,6 +7,7 @@
       </div>
       <div class="page-actions">
         <button class="btn primary" type="button" @click="openCreate">登记加油记录</button>
+        <button class="btn" type="button" @click="openReview">进入复核视图</button>
         <button class="btn" type="button" @click="exportRows">导出航空加油清单</button>
       </div>
     </header>
@@ -72,6 +73,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 
 import {
   downloadEntries,
@@ -82,6 +84,7 @@ import {
 import type { EntryRow } from '@/data/types'
 
 const meta = moduleMeta('fueling')
+const router = useRouter()
 const columns = ["加油编号", "关联航班", "燃油型号", "加油量", "加油车号", "加油开始", "加油结束", "记录状态"]
 const actions = ["开始加油", "完成加油", "复核记录"]
 const statuses = ["待加油", "加油中", "已完成", "已复核"]
@@ -110,6 +113,10 @@ function exportRows() {
 
 function openCreate() {
   errorMessage.value = '加油记录登记入口尚未接入审批流'
+}
+
+function openReview() {
+  router.push('/fueling/review')
 }
 
 function runAction(action: string, row: EntryRow) {

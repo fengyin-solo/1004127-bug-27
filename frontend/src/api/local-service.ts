@@ -5,6 +5,16 @@ import type { ActionResult, EntryRow, ModuleMeta, OverviewResult, PageResult } f
 // 会写进数据的「往回走」动作：命中就把这条记录标成异常态，看板上能一眼看出来。
 const NEGATIVE_ACTIONS = ['撤销', '作废', '拒绝', '驳回', '停用', '忽略', '下线', '回滚']
 
+// 复核联动：「模块:动作」复核通过后，往目标台账同步一笔确认记录。
+const REVIEW_LEDGER_SYNC: Record<string, string> = {
+  'fueling:复核记录': 'apron_safety',
+}
+
+// 页面拿到的永远是副本：列表、看板、详情各自编辑不到仓库里的行对象，刷新前不会出现脏数据。
+function cloneRow(row: EntryRow): EntryRow {
+  return { ...row }
+}
+
 export function moduleMeta(key: string): ModuleMeta {
   const meta = MODULE_BY_KEY.get(key)
   if (!meta) {
@@ -24,8 +34,44 @@ export function filterRows(rows: EntryRow[], filters: Record<string, string>): E
 }
 
 export function listEntries(key: string, filters: Record<string, string> = {}): PageResult {
-  const matched = filterRows(listRows(key), filters)
+  const matched = filterRows(listRows(key), filters).map(cloneRow)
   return { items: matched, total: matched.length, page: 1, size: matched.length }
+}
+
+// 详情与列表同源：按编号回仓库取最新一行，取不到就返回 null，交给页面空态。
+export function getEntry(key: string, id: number): EntryRow | null {
+  const found = listRows(key).find((row) => Number(row.id) === id)
+  return found ? cloneRow(found) : null
+}
+
+// 加油复核通过后，机坪安全台账追加一笔「油量确认」。只追加不改写：
+// 同油量已入账就跳过（重复复核只生效一次）；油量对不上就保留原记录、追加一条带序号的新记录。
+function syncFuelingReviewLedger(ledgerKey: string, row: EntryRow): boolean {
+  const ledger = listRows(ledgerKey)
+  const syncCode = `FUEL-SYNC-${row['加油编号'] ?? row.id}`
+  const amount = String(row['加油量'] ?? '')
+  const history = ledger.filter((entry) => String(entry['巡查编号'] ?? '').startsWith(syncCode))
+  if (history.some((entry) => String(entry['发现问题'] ?? '').includes(`加油量 ${amount}`))) {
+    return false
+  }
+  const seq = history.length + 1
+  const nextId = ledger.reduce((max, entry) => Math.max(max, Number(entry.id)), 0) + 1
+  const entry: EntryRow = {
+    id: nextId,
+    status: '已闭环',
+    pending: false,
+    abnormal: false,
+    巡查编号: seq > 1 ? `${syncCode}-R${seq}` : syncCode,
+    巡查区域: '航空加油区',
+    巡查人员: '加油复核联动',
+    巡查日期: new Date().toISOString().slice(0, 10),
+    发现问题: `油量确认：航班 ${row['关联航班'] ?? '—'} 加油量 ${amount}`,
+    整改措施: `加油车号 ${row['加油车号'] ?? '—'}，无需整改`,
+    复查结果: '油量已确认',
+    安全状态: '已闭环',
+  }
+  saveRows(ledgerKey, [...ledger, entry])
+  return true
 }
 
 export function runAction(key: string, id: number, action: string): ActionResult {
@@ -53,6 +99,12 @@ export function runAction(key: string, id: number, action: string): ActionResult
   const next = [...rows]
   next[index] = updated
   saveRows(key, next)
+  const ledgerKey = REVIEW_LEDGER_SYNC[`${key}:${action}`]
+  if (ledgerKey) {
+    const synced = syncFuelingReviewLedger(ledgerKey, updated)
+    const ledgerNote = synced ? '，机坪安全台账已同步油量确认' : '，机坪安全台账已有相同油量确认，未重复入账'
+    return { ok: true, message: `${meta.entity}已${action}，当前状态「${target}」${ledgerNote}` }
+  }
   return { ok: true, message: `${meta.entity}已${action}，当前状态「${target}」` }
 }
 

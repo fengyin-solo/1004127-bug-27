@@ -65,6 +65,11 @@ npm run build
 
 - 每个模块的页面在 `frontend/src/views/<模块>/index.vue`，页面只负责渲染，读写统一走
   `frontend/src/api/local-service.ts`。
+- 航空加油另有复核视图 `frontend/src/views/fueling/review.vue`（路由 `/fueling/review`）：
+  待复核/已完成看板、列表、详情都经 `local-service.ts` 读同一份数据，看板分类只认当前状态；
+  取不到记录时显示空态并可重试。
+- 复核通过后 `local-service.ts` 会往机坪安全台账追加一条「油量确认」：只追加不改写，
+  历史差异保留原记录，同油量的重复复核不会重复入账。
 - 字段、状态、动作与流转目标集中在 `frontend/src/data/modules.ts`；示例数据在
   `frontend/src/data/seed.ts`。
 - 状态流转只允许在 `local-service.ts` 里改，页面组件不做业务判断。
