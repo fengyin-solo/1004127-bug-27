@@ -1,0 +1,86 @@
+import type { FuelingRecord } from './review-types'
+
+/**
+ * 复核场景的示例数据。
+ * FUEL-1005 / FUEL-1006 使用同一台加油车 FY-312，
+ * 用来验证「按加油车号定位」时，未复核记录不会被错排进已完成/已复核看板。
+ */
+export const SEED_FUELING_RECORDS: FuelingRecord[] = [
+  {
+    id: 1001,
+    fuelingNo: 'FUEL-1001',
+    flightNo: 'CA1858',
+    fuelType: 'JET A-1',
+    reportedLiters: 8600,
+    truckNo: 'FY-207',
+    startedAt: '2026-10-07 07:12',
+    endedAt: '2026-10-07 07:46',
+    status: '已复核',
+  },
+  {
+    id: 1002,
+    fuelingNo: 'FUEL-1002',
+    flightNo: 'MU5103',
+    fuelType: 'JET A-1',
+    reportedLiters: 12400,
+    truckNo: 'FY-155',
+    startedAt: '2026-10-07 07:40',
+    endedAt: '2026-10-07 08:21',
+    status: '已复核',
+  },
+  {
+    id: 1003,
+    fuelingNo: 'FUEL-1003',
+    flightNo: 'CZ3106',
+    fuelType: 'JET A-1',
+    reportedLiters: 7350,
+    truckNo: 'FY-088',
+    startedAt: '2026-10-07 08:05',
+    endedAt: '2026-10-07 08:37',
+    status: '已完成',
+  },
+  {
+    id: 1004,
+    fuelingNo: 'FUEL-1004',
+    flightNo: 'HU7802',
+    fuelType: 'JET A-1',
+    reportedLiters: 9980,
+    truckNo: 'FY-260',
+    startedAt: '2026-10-07 08:31',
+    endedAt: '2026-10-07 09:08',
+    status: '已完成',
+  },
+  {
+    id: 1005,
+    fuelingNo: 'FUEL-1005',
+    flightNo: 'CA1302',
+    fuelType: 'JET A-1',
+    reportedLiters: 11250,
+    truckNo: 'FY-312',
+    startedAt: '2026-10-07 09:16',
+    endedAt: '2026-10-07 09:52',
+    status: '已完成',
+  },
+  {
+    id: 1006,
+    fuelingNo: 'FUEL-1006',
+    flightNo: 'MU2451',
+    fuelType: 'JET A-1',
+    reportedLiters: 6480,
+    truckNo: 'FY-312',
+    startedAt: '2026-10-07 10:02',
+    endedAt: '',
+    status: '加油中',
+  },
+  {
+    id: 1007,
+    fuelingNo: 'FUEL-1007',
+    flightNo: 'CZ6788',
+    fuelType: 'JET A-1',
+    reportedLiters: 0,
+    truckNo: 'FY-119',
+    startedAt: '',
+    endedAt: '',
+    status: '待加油',
+  },
+]

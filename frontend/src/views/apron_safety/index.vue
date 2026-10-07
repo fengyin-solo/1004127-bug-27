@@ -24,6 +24,14 @@
       </span>
     </p>
 
+    <p class="fuel-sync-banner" data-testid="fuel-sync-banner">
+      <span>
+        加油复核油量确认已同步 {{ fuelSyncCount }} 条至本台账（其中待整改 {{ fuelPendingCount }} 条），
+        台账编号以 FCHK- 开头，重复复核不会重复落账。
+      </span>
+      <button class="btn" type="button" @click="syncFuelConfirmations">立即对齐</button>
+    </p>
+
     <form class="filter-bar" @submit.prevent="reload">
       <label v-for="field in filterFields" :key="field" class="filter-item">
         <span>{{ field }}</span>
@@ -43,7 +51,11 @@
       </thead>
       <tbody>
         <tr v-for="row in rows" :key="String(row.id)">
-          <td v-for="column in columns" :key="column">{{ row[column] ?? '—' }}</td>
+          <td>
+            {{ row[columns[0]] }}
+            <span v-if="isFuelLedger(row)" class="fuel-tag">油量确认</span>
+          </td>
+          <td v-for="column in restColumns" :key="column">{{ row[column] ?? '—' }}</td>
           <td>{{ row.status }}</td>
           <td class="row-actions">
             <button
@@ -80,12 +92,17 @@ import {
   runAction as applyAction,
 } from '@/api/local-service'
 import type { EntryRow } from '@/data/types'
+import { FUEL_LEDGER_PREFIX, reconcileFuelLedger } from '@/views/fueling/review-ledger'
+import { useFuelingReviewStore } from '@/views/fueling/review-store'
 
 const meta = moduleMeta('apron_safety')
 const columns = ["巡查编号", "巡查区域", "巡查人员", "巡查日期", "发现问题", "整改措施", "复查结果", "安全状态"]
+const restColumns = columns.slice(1)
 const actions = ["记录巡查", "安排整改", "确认闭环"]
 const statuses = ["待巡查", "已巡查", "待整改", "已闭环"]
 const stats = [{"label": "今日巡查", "value": 0}, {"label": "待整改问题", "value": 0}, {"label": "已闭环问题", "value": 0}]
+
+const fuelingReviewStore = useFuelingReviewStore()
 
 const rows = ref<EntryRow[]>([])
 const total = ref(0)
@@ -98,6 +115,29 @@ const statusSummary = computed(() =>
     count: rows.value.filter((row) => String(row.status) === status).length,
   })),
 )
+
+function isFuelLedger(row: EntryRow): boolean {
+  return String(row[columns[0]] ?? '').startsWith(`${FUEL_LEDGER_PREFIX}-`)
+}
+
+// 台账中来自加油复核油量确认链路的记录
+const fuelLedgerRows = computed(() => rows.value.filter(isFuelLedger))
+const fuelSyncCount = computed(() => fuelLedgerRows.value.length)
+const fuelPendingCount = computed(
+  () => fuelLedgerRows.value.filter((row) => String(row.status) === '待整改').length,
+)
+
+function syncFuelConfirmations() {
+  // 其余链路对齐：复核历史里的油量确认补登进台账，已存在的编号不重复写入
+  fuelingReviewStore.ensureLoaded()
+  try {
+    reconcileFuelLedger(fuelingReviewStore.snapshots)
+    errorMessage.value = ''
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : '油量确认同步失败，请重试'
+  }
+  reload()
+}
 
 function resetFilters() {
   filters.value = {}
@@ -133,5 +173,39 @@ function reload() {
   }
 }
 
-onMounted(reload)
+onMounted(() => {
+  // 进入台账页时先对齐一次加油复核链路（幂等），保证油量确认不丢账
+  fuelingReviewStore.ensureLoaded()
+  try {
+    reconcileFuelLedger(fuelingReviewStore.snapshots)
+  } catch {
+    // 对齐失败不阻断台账查看，可点「立即对齐」重试
+  }
+  reload()
+})
 </script>
+
+<style scoped>
+.fuel-sync-banner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  background: #eef6ff;
+  border: 1px solid #bcd9ff;
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin: 0 0 10px;
+  font-size: 12px;
+  color: #1d4f8f;
+}
+.fuel-tag {
+  display: inline-block;
+  margin-left: 6px;
+  background: #e7f6ee;
+  color: #067647;
+  border-radius: 999px;
+  padding: 0 8px;
+  font-size: 11px;
+}
+</style>
